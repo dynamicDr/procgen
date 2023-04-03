@@ -1,0 +1,78 @@
+2023-03-31 15:33:37.838338: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-03-31 15:33:43.867596: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2023-03-31 15:33:54.291874: E tensorflow/compiler/xla/stream_executor/cuda/cuda_driver.cc:266] failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+
+NOTE: Using experimental fast data loading logic. To disable, pass
+    "--load_fast=false" and report issues on GitHub. More details:
+    https://github.com/tensorflow/tensorboard/issues/4784
+
+E0331 15:33:55.496561 139765675638784 application.py:125] Failed to load plugin WhatIfToolPluginLoader.load; ignoring it.
+Traceback (most recent call last):
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard/backend/application.py", line 123, in TensorBoardWSGIApp
+    plugin = loader.load(context)
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/wit_plugin_loader.py", line 57, in load
+    from tensorboard_plugin_wit.wit_plugin import WhatIfToolPlugin
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/wit_plugin.py", line 40, in <module>
+    from tensorboard_plugin_wit._utils import common_utils
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/_utils/common_utils.py", line 17, in <module>
+    from tensorboard_plugin_wit._vendor.tensorflow_serving.apis import classification_pb2
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/_vendor/tensorflow_serving/apis/classification_pb2.py", line 15, in <module>
+    from tensorboard_plugin_wit._vendor.tensorflow_serving.apis import input_pb2 as tensorflow__serving_dot_apis_dot_input__pb2
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/_vendor/tensorflow_serving/apis/input_pb2.py", line 37, in <module>
+    _descriptor.FieldDescriptor(
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/google/protobuf/descriptor.py", line 561, in __new__
+    _message.Message._CheckCalledFromGeneratedFile()
+TypeError: Descriptors cannot not be created directly.
+If this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
+If you cannot immediately regenerate your protos, some other possible workarounds are:
+ 1. Downgrade the protobuf package to 3.20.x or lower.
+ 2. Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python (but this will use pure-Python parsing and will be much slower).
+
+More information: https://developers.google.com/protocol-buffers/docs/news/2022-05-06#python-updates
+Address already in use
+Port 6006 is in use by another program. Either identify and stop that program, or start the server with a different port.
+2023-03-31 15:34:46.874119: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-03-31 15:34:47.330562: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2023-03-31 15:34:50.774785: E tensorflow/compiler/xla/stream_executor/cuda/cuda_driver.cc:266] failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+
+NOTE: Using experimental fast data loading logic. To disable, pass
+    "--load_fast=false" and report issues on GitHub. More details:
+    https://github.com/tensorflow/tensorboard/issues/4784
+
+E0331 15:34:50.801304 140674327162880 application.py:125] Failed to load plugin WhatIfToolPluginLoader.load; ignoring it.
+Traceback (most recent call last):
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard/backend/application.py", line 123, in TensorBoardWSGIApp
+    plugin = loader.load(context)
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/wit_plugin_loader.py", line 57, in load
+    from tensorboard_plugin_wit.wit_plugin import WhatIfToolPlugin
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/wit_plugin.py", line 40, in <module>
+    from tensorboard_plugin_wit._utils import common_utils
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/_utils/common_utils.py", line 17, in <module>
+    from tensorboard_plugin_wit._vendor.tensorflow_serving.apis import classification_pb2
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/_vendor/tensorflow_serving/apis/classification_pb2.py", line 15, in <module>
+    from tensorboard_plugin_wit._vendor.tensorflow_serving.apis import input_pb2 as tensorflow__serving_dot_apis_dot_input__pb2
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/tensorboard_plugin_wit/_vendor/tensorflow_serving/apis/input_pb2.py", line 37, in <module>
+    _descriptor.FieldDescriptor(
+  File "/home/zzydty/anaconda3/envs/procgen/bin/python /lib/python3.10/site-packages/google/protobuf/descriptor.py", line 561, in __new__
+    _message.Message._CheckCalledFromGeneratedFile()
+TypeError: Descriptors cannot not be created directly.
+If this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
+If you cannot immediately regenerate your protos, some other possible workarounds are:
+ 1. Downgrade the protobuf package to 3.20.x or lower.
+ 2. Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python (but this will use pure-Python parsing and will be much slower).
+
+More information: https://developers.google.com/protocol-buffers/docs/news/2022-05-06#python-updates
+Serving TensorBoard on localhost; to expose to the network, use a proxy or pass --bind_all
+TensorBoard 2.12.0 at http://localhost:6006/ (Press CTRL+C to quit)
+TensorFlow installation not found - running with reduced feature set.
+
+NOTE: Using experimental fast data loading logic. To disable, pass
+    "--load_fast=false" and report issues on GitHub. More details:
+    https://github.com/tensorflow/tensorboard/issues/4784
+
+E0331 16:49:25.061371 139841425166336 program.py:298] TensorBoard could not bind to port 6006, it was already in use
+ERROR: TensorBoard could not bind to port 6006, it was already in use
+Address already in use
+Port 6006 is in use by another program. Either identify and stop that program, or start the server with a different port.

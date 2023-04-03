@@ -5,7 +5,7 @@ import random
 import numpy as np
 
 
-class DQN:
+class DNN_DQNAgent:
     def __init__(self, args, replay_buffer):
         self.args = args
         self.epsilon = self.args.epsilon_init
@@ -14,16 +14,19 @@ class DQN:
         self.loss_fn = nn.MSELoss()
         self.replay_buffer = replay_buffer
 
+    def get_epsilon(self):
+        return self.epsilon
+
     def _build_model(self):
         # DNN模型定义
         model = nn.Sequential(
-            nn.Linear(self.args.state_dim, 256),
+            nn.Linear(self.args.state_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, self.args.action_dim)
+            nn.Linear(128, self.args.action_dim)
         )
         return model
 
@@ -39,10 +42,10 @@ class DQN:
         if random.random() < self.epsilon:
             action = random.randint(0, self.args.action_dim - 1)
         else:
-            state = torch.FloatTensor(state).unsqueeze(0).to(self.args.device)
+            state = torch.FloatTensor(state).view(-1).to(self.args.device)
             q_values = self.q_network(state)
-            _, action = torch.max(q_values, 1)
-            action = action.item()
+            # print(q_values)
+            _,action = torch.max(q_values, dim=0)
         return action
 
     def update(self):
@@ -74,7 +77,7 @@ class DQN:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
+        self.update_epsilon()
         return loss.item()
 
     def update_epsilon(self):
@@ -82,7 +85,7 @@ class DQN:
 
     def save(self, dir, step):
         step = str(step)
-        torch.save(self.q_network.state_dict(), dir)
+        torch.save(self.q_network.state_dict(), f"{dir}/step_{step}k.pth")
 
 
     def load(self, dir):

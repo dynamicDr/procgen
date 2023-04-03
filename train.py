@@ -11,22 +11,28 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import os
 
-from CNN_DQN import DQNAgent
-from DNN_DQN import DQN
+from CNN_DQN import CNN_DQNAgent
+from DNN_DQN import DNN_DQNAgent
+from procgen import ProcgenEnv
 
 from replays.default_replay import DefaultReplay
 from replays.proportional_PER.proportional import ProportionalPER
 from replays.rank_PER.rank_based import RankPER
 
 from distutils.util import strtobool
+import resource
+
+# # 设置最大内存使用限制为100MB
+# resource.setrlimit(resource.RLIMIT_AS, (80000000000, 80000000000))
 
 def train(args):
     restore_dir = f"./models/{args.restore_env_name}/{args.restore_num}/{args.restore_step_k}k"
     args.restore_dir = restore_dir
     if not torch.cuda.is_available():
         args.device = "cpu"
+    env = gym.make(args.env_name, num_levels=args.num_levels,start_level=0,
+                   distribution_mode="easy",restrict_themes=True,use_monochrome_assets=True)
 
-    env = gym.make(args.env_name)
     # print(env.action_space)
     # print(env.observation_space)
     args.state_space = env.observation_space
@@ -36,12 +42,12 @@ def train(args):
     # save setting
     directory = f"./models/{args.env_name}/{args.replay}/{args.number}"
     os.makedirs(directory, exist_ok=True)
-    save_args(args,directory+"args.txt")
+    save_args(args,directory+"/args.txt")
 
     if args.alg_name == "DNN_DQN":
-        ALG = DQN
+        ALG = DNN_DQNAgent
     elif args.alg_name == "CNN_DQN":
-        ALG = DQNAgent
+        ALG = CNN_DQNAgent
     else:
         raise Exception(f"No alg type found: {args.alg_name}")
 
@@ -63,6 +69,7 @@ def train(args):
     ep_reward = 0
     ep_step = 0
     total_step = 0
+    save_time = 0
 
     writer = SummaryWriter(log_dir=f'./runs/{args.env_name}/{args.number}')
 
@@ -101,8 +108,9 @@ def train(args):
         writer.add_scalar("reward", ep_reward, global_step=total_step)
 
         # save checkpoint:
-        if episode % args.save_rate == 0:
+        if total_step >= (save_time+1) * args.save_rate:
             policy.save(directory, int(total_step / 1000))
+            save_time += 1
 
         episode_time = time.time() - start_time
         time_queue.put(episode_time)
@@ -119,14 +127,14 @@ def train(args):
               "Reward: {}\t"
               "Goal: {} \t"
               "Epi_step: {} \t"
-              "Goal_in_100_Epi: {} \t"
+              "Epsilon: {} \t"
+              "Buffer: {}/{} \t"
               "Avg_Epi_Time: {} ".format(episode, int(total_step / 1000),
                                      round(ep_reward, 2),
-                                     # info["goal"],
-                                         None,
+                                     None,
                                      ep_step,
-                                         0,
-                                     # sum(list(goal_queue.queue)),
+                                     policy.get_epsilon(),
+                                     replay_buffer.size,int(args.replay_max_size),
                                      avg_epi_time))
         ep_reward = 0
         ep_step = 0
@@ -141,17 +149,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Training arguments')
     parser.register('type', 'boolean', strtobool)
     parser.add_argument('--env_name', type=str, default='procgen:procgen-coinrun-v0', help='environment name')
+    parser.add_argument('--num_levels', type=int, default=10, help='Number of unique levels generated. 0 = unlimited levels.')
     parser.add_argument('--alg_name', type=str, default='DNN_DQN', help='alg name')
-    parser.add_argument('--number', type=int, default=0, help='number')
+    parser.add_argument('--number', type=int, default=3, help='number')
     parser.add_argument('--gamma', type=float, default=0.99, help='discount for future rewards')
     parser.add_argument('--batch_size', type=int, default=128, help='num of transitions sampled from replay buffer')
     parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
     parser.add_argument('--epsilon_init', type=float, default=1.0,help='initial value of epsilon for epsilon-greedy exploration')
     parser.add_argument('--epsilon_min', type=float, default=0.01, help='minimum value of epsilon')
-    parser.add_argument('--epsilon_decay', type=float, default=0.995, help='decay rate of epsilon')
-    parser.add_argument('--max_episodes', type=int, default=10000000000000, help='max num of episodes')
+    parser.add_argument('--epsilon_decay', type=float, default=0.998, help='decay rate of epsilon')
+    parser.add_argument('--max_episodes', type=int, default=1000000, help='max num of episodes')
     # parser.add_argument('--max_timesteps', type=int, default=200, help='max timesteps in one episode')
-    parser.add_argument('--save_rate', type=int, default=5000, help='save the check point per ? step')
+    parser.add_argument('--save_rate', type=int, default=1e7, help='save the check point per ? step')
     parser.add_argument('--restore', type='boolean', default=False, help='restore from checkpoint or not')
     parser.add_argument('--restore_env_name', type=str, default="", help='')
     parser.add_argument('--restore_num', type=int, default=1, help='restore number')
@@ -159,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default="cuda", help='')
     parser.add_argument('--render', type='boolean', default=False, help='')
     parser.add_argument('--replay', type=str, default="default", help='')
-    parser.add_argument('--replay_max_size', type=int, default=5e5, help='')
+    parser.add_argument('--replay_max_size', type=int, default=1e6, help='')
     args = parser.parse_args()
     print(args)
     train(args)

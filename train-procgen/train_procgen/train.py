@@ -3,6 +3,7 @@ from baselines.ppo2 import ppo2
 from baselines.common.models import build_impala_cnn
 from baselines.common.mpi_util import setup_mpi_gpus
 import sys
+
 sys.path.append("..")
 from procgen import ProcgenEnv
 from baselines.common.vec_env import (

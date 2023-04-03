@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -8,37 +10,108 @@ import torch.nn.functional as F
 import numpy as np
 from gym.vector.utils import spaces
 
+class Conv2d_tf(nn.Conv2d):
+    def __init__(self, *args, **kwargs):
+        super(Conv2d_tf, self).__init__(*args, **kwargs)
+        self.padding = kwargs.get("padding", "same")
 
-class DQN(nn.Module):
-    def __init__(self,
-                 observation_space: spaces.Box,
-                 action_space: spaces.Discrete):
+    def _compute_padding(self, input, dim):
+        input_size = input.size(dim + 2)
+        filter_size = self.weight.size(dim + 2)
+        effective_filter_size = (filter_size - 1) * self.dilation[dim] + 1
+        out_size = (input_size + self.stride[dim] - 1) // self.stride[dim]
+        total_padding = max(0, (out_size - 1) * self.stride[dim] + effective_filter_size - input_size)
+        additional_padding = int(total_padding % 2 != 0)
+        return additional_padding, total_padding
+
+    def forward(self, input):
+        if self.padding == "VALID":
+            return F.conv2d(
+                input,
+                self.weight,
+                self.bias,
+                self.stride,
+                padding=0,
+                dilation=self.dilation,
+                groups=self.groups,
+            )
+        rows_odd, padding_rows = self._compute_padding(input, dim=0)
+        cols_odd, padding_cols = self._compute_padding(input, dim=1)
+        if rows_odd or cols_odd:
+            input = F.pad(input, [0, cols_odd, 0, rows_odd])
+
+        return F.conv2d(
+            input,
+            self.weight,
+            self.bias,
+            self.stride,
+            padding=(padding_rows // 2, padding_cols // 2),
+            dilation=self.dilation,
+            groups=self.groups,
+        )
+
+
+class L2Pool(nn.Module):
+    def __init__(self, *args, **kwargs):
         super().__init__()
-        print(observation_space)
-        print(action_space)
-        assert type(
-            observation_space) == spaces.Box, 'observation_space must be of type Box'
-        assert len(
-            observation_space.shape) == 3, 'observation space must have the form channels x width x height'
-        assert type(
-            action_space) == spaces.Discrete, 'action_space must be of type Discrete'
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=4, stride=2),
-            nn.ReLU()
-        )
-
-        self.fc = nn.Sequential(
-            nn.Linear(in_features=32*9*9 , out_features=256),
-            nn.ReLU(),
-            nn.Linear(in_features=256, out_features=action_space.n)
-        )
+        self.pool = nn.AvgPool2d(*args, **kwargs)
+        self.n = self.pool.kernel_size ** 2
 
     def forward(self, x):
-        conv_out = self.conv(x).reshape(x.size()[0],-1)
-        return self.fc(conv_out)
+        return torch.sqrt(self.pool(x ** 2) * self.n)
+
+class SimpleDQN(nn.Module):
+    def __init__(self, args):
+        super(SimpleDQN, self).__init__()
+        self.action_dim = args.action_dim
+        self.conv1 = Conv2d_tf(3, 16, kernel_size=7, stride=1, padding="same")
+        self.pool1 = L2Pool(kernel_size=2, stride=2)
+        self.conv2a = Conv2d_tf(16, 32, kernel_size=5, stride=1, padding="same")
+        self.conv2b = Conv2d_tf(32, 32, kernel_size=5, stride=1, padding="same")
+        self.pool2 = L2Pool(kernel_size=2, stride=2)
+        self.conv3 = Conv2d_tf(32, 32, kernel_size=7, stride=1, padding="same")
+        self.pool3 = L2Pool(kernel_size=2, stride=2)
+        self.conv4 = Conv2d_tf(32, 32, kernel_size=7, stride=1, padding="same")
+        self.pool4 = L2Pool(kernel_size=2, stride=2)
+        self.flat = nn.Flatten()
+        self.fc_h1_v = nn.Linear(512, 256)
+        self.fc_h1_a = nn.Linear(512, 256)
+        self.fc_h2_v = nn.Linear(256, 512)
+        self.fc_h2_a = nn.Linear(256, 512)
+        self.fc_z_v = nn.Linear(512, 1)
+        self.fc_z_a = nn.Linear(512, self.action_dim)
+
+    def forward(self, x):
+        x = self.pool1(F.relu(self.conv1(x)))
+        x = self.pool2(F.relu(self.conv2b(F.relu(self.conv2a(x)))))
+        x = self.pool3(F.relu(self.conv3(x)))
+        x = self.pool4(F.relu(self.conv4(x)))
+        x = self.flat(x)
+        value = F.relu(self.fc_h1_v(x))
+        value = F.relu(self.fc_h2_v(value))
+        value = self.fc_z_v(value)
+        advantage = F.relu(self.fc_h1_a(x))
+        advantage = F.relu(self.fc_h2_a(advantage))
+        advantage = self.fc_z_a(advantage)
+        value, advantage = (
+            value.view(
+                -1,
+                1,
+            ),
+            advantage.view(-1, self.action_space),
+        )
+        q = value + advantage - advantage.mean(1, keepdim=True)
+        return q
+
+    def effective_rank(self, delta=0.01):
+        _, s, _ = torch.svd(self.fc_h_v.weight)
+        diag_sum = torch.sum(s)
+        partial_sum = s[0]
+        k = 0
+        while (partial_sum / diag_sum) < (1 - delta):
+            k += 1
+            partial_sum += s[k]
+        return
 
 # class DQNAgent:
 #     def __init__(self, args, replay_buffer):
@@ -109,91 +182,82 @@ class DQN(nn.Module):
 #
 #     def load(self, dir):
 #         self.q_network.load_state_dict(torch.load(dir, map_location=lambda storage, loc: storage))
-from gym import spaces
-import numpy as np
-
-import torch
-import torch.nn.functional as F
-
-
-class DQNAgent:
+class CNN_DQNAgent(object):
     def __init__(self, args, replay_buffer):
-        self.memory = replay_buffer
-        self.batch_size = args.batch_size
-        self.use_double_dqn = False
-        self.gamma = args.gamma
         self.args = args
-        self.policy_network = DQN(args.state_space, args.action_space).to(self.args.device)
-        self.target_network = DQN(args.state_space, args.action_space).to(self.args.device)
-        self.update_target_network()
-        self.target_network.eval()
+        self.epsilon = self.args.epsilon_init
 
-        self.optimiser = torch.optim.RMSprop(self.policy_network.parameters()
-            , lr=args.lr)
-        ## self.optimiser = torch.optim.Adam(self.policy_network.parameters(), lr=lr)
-
+        self.loss_fn = nn.MSELoss()
+        self.replay_buffer = replay_buffer
         self.device = args.device
+        self.action_space = args.action_space
+        self.batch_size = args.batch_size
+        self.gamma = args.gamma
+        self.q_network = SimpleDQN(args).to(self.device)
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.args.lr)
+
+    def select_action(self, state):
+        with torch.no_grad():
+            q = self.q_network(state)
+            action = q.argmax(1).reshape(-1, 1)
+            max_q = q.max(1)[0]
+            mean_q = q.mean(1)
+            return action
+
+    #     def select_action(self, state):
+    #         if random.random() < self.epsilon:
+    #             action = random.randint(0, self.args.action_dim - 1)
+    #         else:
+    #             state = torch.FloatTensor(state).unsqueeze(0).to(self.args.device)
+    #             q_values = self.q_network(state)
+    #             _, action = torch.max(q_values, 1)
+    #             action = action.item()
+    #         return action
 
     def update(self):
-        """
-        Optimise the TD-error over a single minibatch of transitions
-        :return: the loss
-        """
-        device = self.device
+        # Sample a batch of transitions from replay buffer:
+        if self.replay_buffer.size < self.args.batch_size:
+            return
+        sample = self.replay_buffer.sample()
 
-        states, actions, rewards, next_states, dones = self.memory.sample(self.batch_size)
-        states = np.array(states) / 255.0
-        next_states = np.array(next_states) / 255.0
-        states = torch.from_numpy(states).float().to(device)
-        actions = torch.from_numpy(actions).long().to(device)
-        rewards = torch.from_numpy(rewards).float().to(device)
-        next_states = torch.from_numpy(next_states).float().to(device)
-        dones = torch.from_numpy(dones).float().to(device)
-        states = states.transpose(3, 2).transpose(2, 1)
-        next_states = next_states.transpose(3, 2).transpose(2, 1)
+        if sample is None:
+            return
+        state, action, reward, next_state, done, weights, indices = sample
+        if state is None:
+            return
 
-        with torch.no_grad():
-            if self.use_double_dqn:
-                _, max_next_action = self.policy_network(next_states).max(1)
-                max_next_q_values = self.target_network(next_states).gather(1, max_next_action.unsqueeze(1)).squeeze()
-            else:
-                next_q_values = self.target_network(next_states)
-                max_next_q_values, _ = next_q_values.max(1)
-            target_q_values = rewards + (1 - dones) * self.gamma * max_next_q_values
+        state = torch.FloatTensor(state).to(self.args.device)
+        action = torch.LongTensor(action).to(self.args.device)
+        reward = torch.FloatTensor(reward).reshape((self.args.batch_size, 1)).to(self.args.device)
+        next_state = torch.FloatTensor(next_state).to(self.args.device)
+        done = torch.FloatTensor(done).reshape((self.args.batch_size, 1)).to(self.args.device)
 
-        input_q_values = self.policy_network(states)
-        input_q_values = input_q_values.gather(1, actions.unsqueeze(1)).squeeze()
+        state = state.transpose(3, 2).transpose(2, 1)
+        next_state = next_state.transpose(3, 2).transpose(2, 1)
+        print(state.shape)
+        q_values = self.q_network(state)
+        next_q_values = self.q_network(next_state)
+        next_q_state_value, _ = torch.max(next_q_values, 1)
+        target_q_values = reward + (1 - done) * self.args.gamma * next_q_state_value.detach()
+        q_value = q_values.gather(1, action.unsqueeze(1)).squeeze(1)
 
-        loss = F.smooth_l1_loss(input_q_values, target_q_values)
+        loss = self.loss_fn(q_value, target_q_values)
 
-        self.optimiser.zero_grad()
+        self.optimizer.zero_grad()
         loss.backward()
-        self.optimiser.step()
-        del states
-        del next_states
+        self.optimizer.step()
+
         return loss.item()
 
-    def update_target_network(self):
-        """
-        Update the target Q-network by copying the weights from the current Q-network
-        """
-        self.target_network.load_state_dict(self.policy_network.state_dict())
 
-    def select_action(self, state: np.ndarray):
-        """
-        Select an action greedily from the Q-network given the state
-        :param state: the current state
-        :return: the action to take
-        """
+    def save(self, dir, step):
+        step = str(step)
+        torch.save(self.q_network.state_dict(), f"{dir}/step_{step}k.pth")
 
-        device = self.device
-        state = np.array(state) / 255.0
-        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
-        with torch.no_grad():
-            state = state.transpose(3, 2).transpose(2, 1)
-            q_values = self.policy_network(state)
-            _, action = q_values.max(1)
-            return action.item()
+
+    def load(self, dir):
+        self.q_network.load_state_dict(torch.load(dir, map_location=lambda storage, loc: storage))
+
 
 # if __name__ == '__main__':
 #     model = DQN(a)
